@@ -33,12 +33,50 @@ void q_free(struct list_head *head)
 /* Insert an element at head of queue */
 bool q_insert_head(struct list_head *head, char *s)
 {
+    if (!head)
+        return false;
+
+    element_t *node = (element_t *) malloc(sizeof(element_t));
+    char *str_copy = (char *) malloc(sizeof(char));
+
+    int i, length = strlen(s);
+    for (i = 0; i < length; i++) {
+        *(str_copy + i) = *(s + i);
+    }
+    *(str_copy + i) = '\0';
+
+    node->value = str_copy;
+    node->list.prev = head;
+    node->list.next = (head->next);
+
+    (head->next)->prev = &node->list;
+    head->next = &node->list;
+
     return true;
 }
 
 /* Insert an element at tail of queue */
 bool q_insert_tail(struct list_head *head, char *s)
 {
+    if (!head)
+        return false;
+
+    element_t *node = (element_t *) malloc(sizeof(element_t));
+    char *str_copy = (char *) malloc(sizeof(char));
+
+    int i, length = strlen(s);
+    for (i = 0; i < length; i++) {
+        *(str_copy + i) = *(s + i);
+    }
+    *(str_copy + i) = '\0';
+
+    node->value = str_copy;
+    node->list.next = head;
+    node->list.prev = (head->prev);
+
+    (head->prev)->next = &node->list;
+    head->prev = &node->list;
+
     return true;
 }
 
