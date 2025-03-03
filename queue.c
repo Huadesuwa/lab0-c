@@ -64,15 +64,17 @@ bool q_insert_tail(struct list_head *head, char *s)
         return false;
 
     element_t *node = (element_t *) malloc(sizeof(element_t));
-    char *str_copy = (char *) malloc(sizeof(char));
+    if (!node)
+        return false;
 
-    int i, length = strlen(s);
-    for (i = 0; i < length; i++) {
-        *(str_copy + i) = *(s + i);
+    node->value = malloc(strlen(s) + 1);
+    if (!node->value) {
+        q_release_element(node);
+        return false;
     }
-    *(str_copy + i) = '\0';
 
-    node->value = str_copy;
+    strlcpy(node->value, s, strlen(s) + 1);
+
     node->list.next = head;
     node->list.prev = (head->prev);
 
