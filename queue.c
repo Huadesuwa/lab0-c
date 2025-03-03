@@ -27,6 +27,20 @@ struct list_head *q_new()
 /* Free all storage used by queue */
 void q_free(struct list_head *head)
 {
+    // if queue is empty.
+    if (!head)
+        return;
+    // if queue only have an element.
+    if (list_empty(head)) {
+        free(head);
+        return;
+    }
+
+    list_head *pos, *safe;
+    list_for_each_safe (pos, safe, head) {
+        element_t *cur = list_entry(pos, element_t, list);
+        q_release_element(cur);
+    }
     free(head);
 }
 
