@@ -168,18 +168,53 @@ void q_sort(struct list_head *head, bool descend) {}
 
 /* Remove every node which has a node with a strictly less value anywhere to
  * the right side of it */
+// cppcheck-suppress constParameterPointer
 int q_ascend(struct list_head *head)
 {
     // https://leetcode.com/problems/remove-nodes-from-linked-list/
-    return 0;
+    if (!head || list_empty(head))
+        return 0;
+
+    element_t *each, *safe;
+    list_head *pending = q_new();
+    int count = 0;
+
+    list_for_each_entry_safe (each, safe, head, list) {
+        count++;
+        if (&safe->list != head && strcmp(each->value, safe->value) > 0) {
+            list_move(&safe->list, pending);
+            safe = each;
+            count--;
+        }
+    }
+    q_free(pending);
+    return count;
 }
 
-/* Remove every node which has a node with a strictly greater value anywhere to
- * the right side of it */
+/* Remove every node which has a node with a strictly greater value anywhere
+ * to the right side of it */
 int q_descend(struct list_head *head)
 {
     // https://leetcode.com/problems/remove-nodes-from-linked-list/
-    return 0;
+    if (!head || list_empty(head))
+        return 0;
+
+    int count = q_size(head);
+    list_head *prev = head->prev;
+    list_head *pending;
+    while (prev->prev != head) {
+        if (strcmp(list_entry(prev, element_t, list)->value,
+                   list_entry(prev->prev, element_t, list)->value) > 0) {
+            pending = prev->prev;
+            list_del(pending);
+            element_t *str = list_entry(pending, element_t, list);
+            q_release_element(str);
+            count--;
+        } else {
+            prev = prev->prev;
+        }
+    }
+    return count;
 }
 
 /* Merge all the queues into one sorted queue, which is in ascending/descending
