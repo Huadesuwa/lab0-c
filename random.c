@@ -79,6 +79,16 @@
 #endif
 #endif
 
+#include "string.h"
+
+int xorshift(uint8_t *buf, size_t n);
+
+const rand_func_t rand_func[] = {&randombytes, &xorshift};
+const int max_prng = sizeof(rand_func) / sizeof(rand_func[0]);
+int prng = 0;
+
+static uint32_t xorshift_state = 2463534242UL;
+
 #if (defined(__linux__) || defined(__GNU__)) && \
     (defined(USE_GLIBC) || defined(SYS_getrandom))
 #if defined(USE_GLIBC)
@@ -271,6 +281,53 @@ static int bsd_randombytes(void *buf, size_t n)
 #endif
 }
 #endif
+
+/**
+ * xorshift32() - generate a new random 32-bit unsigned integer using
+ * xorshift algorithm.
+ * @state: pointer to the entropy state variable
+ *
+ * Reference:
+ * url
+ *
+ * Return: the generated random 32-bit unsigned integer
+ */
+static inline uint32_t xorshift32(uint32_t *state)
+{
+    uint32_t x = *state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *state = x;
+    return x;
+}
+
+/**
+ * xorshift() - generate n random bytes and store them in buf using
+ * xorshift32 algorithm.
+ *
+ * This functions uses a for loop to process full chunks of sizeof(uint32_t)
+ * bytes, and then copies the remaining bytes (if any) using memcpy.
+ *
+ * @buf: Point to the buffer where random bytes will be stored
+ * @n: How many number bytes to generate
+ *
+ * Return: int 0 on success
+ */
+int xorshift(uint8_t *buf, size_t n)
+{
+    uint32_t tmp;
+    for (; n >= sizeof(uint32_t);
+         n -= sizeof(uint32_t), buf += sizeof(uint32_t)) {
+        tmp = xorshift32(&xorshift_state);
+        memcpy(buf, &tmp, sizeof(tmp));
+    }
+    if (n > 0) {
+        tmp = xorshift32(&xorshift_state);
+        memcpy(buf, &tmp, n);
+    }
+    return 0;
+}
 
 int randombytes(uint8_t *buf, size_t n)
 {
