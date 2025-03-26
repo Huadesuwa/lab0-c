@@ -299,6 +299,39 @@ static bool do_it(int argc, char *argv[])
     return queue_insert(POS_TAIL, argc, argv);
 }
 
+static bool queue_shuffle(position_t pos, int argc, char *argv[])
+{
+    if (argc != 1) {
+        report(1, "%s takes no arguments", argv[0]);
+        return false;
+    }
+
+    if (!current || !current->q)
+        report(3, "Warning: Calling shuffle on null queue");
+    error_check();
+
+    if (prng > max_prng || prng < 0) {
+        report(1, "Selection must be within the range of 0 to %d",
+               max_prng - 1);
+        return false;
+    }
+
+    set_noallocate_mode(true);
+    if (current && exception_setup(true))
+        q_shuffle(current->q);
+    exception_cancel();
+
+    set_noallocate_mode(false);
+    q_show(3);
+    return !error_check();
+}
+
+/* shuffle */
+static bool do_shuffle(int argc, char *argv[])
+{
+    return queue_shuffle(POS_HEAD, argc, argv);
+}
+
 static bool queue_remove(position_t pos, int argc, char *argv[])
 {
     /* FIXME: It is known that both functions is_remove_tail_const() and
@@ -1107,6 +1140,7 @@ static void console_init()
                 "");
     ADD_COMMAND(reverseK, "Reverse the nodes of the queue 'K' at a time",
                 "[K]");
+    ADD_COMMAND(shuffle, "Shuffle the queue", "");
     add_param("length", &string_length, "Maximum length of displayed string",
               NULL);
     add_param("malloc", &fail_probability, "Malloc failure probability percent",
