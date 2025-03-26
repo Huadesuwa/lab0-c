@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "queue.h"
+#include "random.h"
 
 /* Notice: sometimes, Cppcheck would find the potential NULL pointer bugs,
  * but some of them cannot occur. You can suppress them by adding the
@@ -39,7 +40,7 @@ void q_free(struct list_head *head)
     }
 
     element_t *entry, *safe;
-    list_for_each_entry_safe (entry, safe, head, list)
+    list_for_each_entry_safe(entry, safe, head, list)
         q_release_element(entry);
     free(head);
 }
@@ -54,20 +55,13 @@ bool q_insert_head(struct list_head *head, char *s)
     if (!node)
         return false;
 
-    node->value = malloc(strlen(s) + 1);
+    node->value = strdup(s);
     if (!node->value) {
         q_release_element(node);
         return false;
     }
 
-    strlcpy(node->value, s, strlen(s) + 1);
-
-    node->list.prev = head;
-    node->list.next = (head->next);
-
-    (head->next)->prev = &node->list;
-    head->next = &node->list;
-
+    list_add(&node->list, head);
     return true;
 }
 
@@ -81,20 +75,13 @@ bool q_insert_tail(struct list_head *head, char *s)
     if (!node)
         return false;
 
-    node->value = malloc(strlen(s) + 1);
+    node->value = strdup(s);
     if (!node->value) {
         q_release_element(node);
         return false;
     }
 
-    strlcpy(node->value, s, strlen(s) + 1);
-
-    node->list.next = head;
-    node->list.prev = (head->prev);
-
-    (head->prev)->next = &node->list;
-    head->prev = &node->list;
-
+    list_add_tail(&node->list, head);
     return true;
 }
 
@@ -141,7 +128,7 @@ int q_size(struct list_head *head)
 
     int len = 0;
     list_head *li;
-    list_for_each (li, head)
+    list_for_each(li, head)
         len++;
     return len;
 }
@@ -176,7 +163,7 @@ bool q_delete_dup(struct list_head *head)
 
     bool last = false;
     element_t *entry, *safe;
-    list_for_each_entry_safe (entry, safe, head, list) {
+    list_for_each_entry_safe(entry, safe, head, list) {
         bool cur = (&safe->list != head && !strcmp(entry->value, safe->value));
 
         // head -> A       -> A -> B   -> C -> ... -> head
@@ -201,7 +188,7 @@ void q_swap(struct list_head *head)
     // head(each->prev) -> each -> safe ->... -> head
     // head             -> safe -> each ->... -> head
     list_head *each, *safe;
-    list_for_each_safe (each, safe, head) {
+    list_for_each_safe(each, safe, head) {
         if (safe != head) {
             list_move(safe, each->prev);
             safe = each->next;
@@ -291,7 +278,7 @@ int q_ascend(struct list_head *head)
     list_head *pending = q_new();
     int count = 0;
 
-    list_for_each_entry_safe (each, safe, head, list) {
+    list_for_each_entry_safe(each, safe, head, list) {
         count++;
         if (&safe->list != head && strcmp(each->value, safe->value) > 0) {
             list_move(&safe->list, pending);
@@ -386,4 +373,25 @@ int q_merge(struct list_head *head, bool descend)
         count = q_merge_two(first_q->q, next_q->q, descend);
     }
     return count;
+}
+
+void q_shuffle(list_head *head)
+{
+    if (!head || list_empty(head) || list_is_singular(head))
+        return;
+
+    LIST_HEAD(dummy);
+    for (int i = q_size(head); i > 0; i--) {
+        /* Generate a random number in the range [0, i-1] */
+        uint32_t j;
+        rand_func[prng]((uint8_t *) &j, sizeof(uint32_t));
+        j = j % i;
+
+        // Swap indices q[i] and q[j]
+        list_head *node = head->next;
+        while ((int) j-- > 0 && node != head)
+            node = node->next;
+        list_move(node, &dummy);
+    }
+    list_splice(&dummy, head);
 }
