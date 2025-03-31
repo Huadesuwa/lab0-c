@@ -242,27 +242,127 @@ void q_reverseK(struct list_head *head, int k)
     }
 }
 
+static struct list_head *merge(list_head *a, list_head *b, bool descend)
+{
+    struct list_head *head, **tail = &head;
+
+    for (;;) {
+        /* if equal, take 'a' -- important for sort stability */
+        const char *l_value = list_entry(a, element_t, list)->value,
+                   *r_value = list_entry(b, element_t, list)->value;
+        if (strcmp(l_value, r_value) == descend) {
+            *tail = a;
+            tail = &a->next;
+            a = a->next;
+            if (!a) {
+                *tail = b;
+                break;
+            }
+        } else {
+            *tail = b;
+            tail = &b->next;
+            b = b->next;
+            if (!b) {
+                *tail = a;
+                break;
+            }
+        }
+    }
+    return head;
+}
+
+static void merge_final(list_head *head,
+                        list_head *a,
+                        list_head *b,
+                        bool descend)
+{
+    struct list_head *tail = head;
+
+    for (;;) {
+        /* if equal, take 'a' -- important for sort stability */
+        const char *l_value = list_entry(a, element_t, list)->value,
+                   *r_value = list_entry(b, element_t, list)->value;
+        if (strcmp(l_value, r_value) == descend) {
+            tail->next = a;
+            a->prev = tail;
+            tail = a;
+            a = a->next;
+            if (!a)
+                break;
+        } else {
+            tail->next = b;
+            b->prev = tail;
+            tail = b;
+            b = b->next;
+            if (!b) {
+                b = a;
+                break;
+            }
+        }
+    }
+
+    /* Finish linking remainder of list b on to tail */
+    tail->next = b;
+    do {
+        b->prev = tail;
+        tail = b;
+        b = b->next;
+    } while (b);
+
+    /* And the final links to make a circular doubly-linked list */
+    tail->next = head;
+    head->prev = tail;
+}
+
 /* Sort elements of queue in ascending/descending order */
 void q_sort(struct list_head *head, bool descend)
 {
-    if (list_empty(head) || list_is_singular(head))
+    struct list_head *list = head->next, *pending = NULL;
+    size_t count = 0; /* Count of pending */
+
+    if (list == head->prev) /* Zero or one elements */
         return;
 
-    LIST_HEAD(left);
-    LIST_HEAD(right);
-    list_head *slow, *fast;
-    slow = fast = head->next;
-    while (fast->next != head && fast->next->next != head) {
-        slow = slow->next;
-        fast = fast->next->next;
-    }
-    list_cut_position(&left, head, slow);
-    list_splice_init(head, &right);
+    /* Convert to a null-terminated singly-linked list. */
+    head->prev->next = NULL;
+    do {
+        size_t bits;
+        struct list_head **tail = &pending;
 
-    q_sort(&left, descend);
-    q_sort(&right, descend);
-    q_merge_two(&left, &right, descend);
-    list_splice_init(&left, head);
+        /* Find the least-significant clear bit in count */
+        for (bits = count; bits & 1; bits >>= 1)
+            tail = &(*tail)->prev;
+        /* Do the indicated merge */
+        if (bits) {
+            struct list_head *a = *tail, *b = a->prev;
+
+            a = q_merge_two(b, a, descend);
+            /* Install the merged result in place of the inputs */
+            a->prev = b->prev;
+            *tail = a;
+        }
+
+        /* Move one element from input list to pending */
+        list->prev = pending;
+        pending = list;
+        list = list->next;
+        pending->next = NULL;
+        count++;
+    } while (list);
+
+    /* End of input; merge together all the pending lists. */
+    list = pending;
+    pending = pending->prev;
+    for (;;) {
+        struct list_head *next = pending->prev;
+
+        if (!next)
+            break;
+        list = q_merge_two(pending, list, descend);
+        pending = next;
+    }
+    /* The final merge, rebuilding prev links */
+    merge_final(head, pending, list, descend);
 }
 
 /* Remove every node which has a node with a strictly less value anywhere to
